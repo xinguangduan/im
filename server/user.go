@@ -1,7 +1,6 @@
 package server
 
 import (
-	"fmt"
 	"net"
 )
 
@@ -10,26 +9,46 @@ type User struct {
 	Addr    string
 	Channel chan string
 	Conn    net.Conn
+	Server  Server
 }
 
-func CreateUser(conn net.Conn) *User {
+func CreateUser(conn net.Conn, s Server) *User {
 	userAddr := conn.RemoteAddr().String()
 	u := &User{
 		Name:    userAddr,
 		Addr:    userAddr,
 		Channel: make(chan string),
 		Conn:    conn,
+		Server:  s,
 	}
 	go u.ListenMessage()
-
 	return u
 }
 
 func (u *User) ListenMessage() {
 	for {
 		msg := <-u.Channel
-		fmt.Println(msg)
 		// write message to client
 		u.Conn.Write([]byte(msg + "\n"))
 	}
+}
+
+func (u *User) Online() {
+	u.Server.MapLock.Lock()
+	u.Server.OnlineMap[u.Name] = u
+	u.Server.MapLock.Unlock()
+
+	u.Server.BroadCastMessage(u, u.Name+"已上线")
+}
+
+func (u *User) Offline() {
+	u.Server.MapLock.Lock()
+	delete(u.Server.OnlineMap, u.Name)
+	u.Server.MapLock.Unlock()
+
+	u.Server.BroadCastMessage(u, u.Name+"已下线")
+}
+
+func (u *User) HandleMessage(msg string) {
+	u.Server.BroadCastMessage(u, msg)
 }

@@ -2,6 +2,7 @@ package server
 
 import (
 	"fmt"
+	"io"
 	"net"
 	"sync"
 )
@@ -48,29 +49,49 @@ func (s *Server) ListenMessage() {
 	for {
 		msg := <-s.Message
 		s.MapLock.Lock()
-		for key, user := range s.OnlineMap {
-			fmt.Println(key, user.Name)
-			user.Channel <- msg
+		for _, client := range s.OnlineMap {
+			client.Channel <- msg
 		}
 		s.MapLock.Unlock()
 	}
 }
 
-func (s *Server) broadCastMessage(u *User, msg string) {
+func (s *Server) BroadCastMessage(u *User, msg string) {
 	bMsg := "[" + u.Addr + "]" + msg
 	s.Message <- bMsg
 }
 
 func (s *Server) handle(conn net.Conn) {
 	addr := conn.RemoteAddr()
-	fmt.Println(addr)
-	fmt.Println("got new request with")
-	u := CreateUser(conn)
-	s.MapLock.Lock()
-	s.OnlineMap[u.Name] = u
-	s.MapLock.Unlock()
+	fmt.Println("new connection", addr.String())
+	u := CreateUser(conn, *s)
+	//s.MapLock.Lock()
+	//s.OnlineMap[u.Name] = u
+	//s.MapLock.Unlock()
 	// send message to User
-	s.broadCastMessage(u, "already online")
+	//s.BroadCastMessage(u, "already online")
+	u.Online()
+	// read client data and process
+	go s.handleClientMessage(conn, u)
 	// block current process
 	select {}
+}
+
+func (s *Server) handleClientMessage(conn net.Conn, u *User) {
+	for {
+		buf := make([]byte, 4096)
+		n, err := conn.Read(buf)
+		if err != nil && err != io.EOF {
+			fmt.Println("read data from client error", err)
+			break
+		}
+		if n == 0 {
+			//s.BroadCastMessage(u, "下线啦")
+			u.Offline()
+			return
+		}
+		uMsg := string(buf)
+		//s.BroadCastMessage(u, uMsg)
+		u.HandleMessage(uMsg)
+	}
 }
