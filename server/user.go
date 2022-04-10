@@ -34,18 +34,12 @@ func (u *User) ListenMessage() {
 }
 
 func (u *User) Online() {
-	u.Server.MapLock.Lock()
-	u.Server.OnlineMap[u.Name] = u
-	u.Server.MapLock.Unlock()
-
+	u.Server.PushUserToMap(u)
 	u.Server.BroadCastMessage(u, u.Name+"已上线")
 }
 
 func (u *User) Offline() {
-	u.Server.MapLock.Lock()
-	delete(u.Server.OnlineMap, u.Name)
-	u.Server.MapLock.Unlock()
-
+	u.Server.RemoveUserFromMap(u)
 	u.Server.BroadCastMessage(u, u.Name+"已下线")
 }
 

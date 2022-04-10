@@ -11,9 +11,11 @@ type Server struct {
 	IP        string
 	Port      int
 	OnlineMap map[string]*User
-	MapLock   sync.RWMutex
-	Message   chan string // server channel
+
+	Message chan string // server channel
 }
+
+var mapLock sync.RWMutex
 
 func CreateServer(ip string, port int) *Server {
 	s := &Server{
@@ -48,11 +50,11 @@ func (s *Server) StartServer() {
 func (s *Server) ListenMessage() {
 	for {
 		msg := <-s.Message
-		s.MapLock.Lock()
+		mapLock.Lock()
 		for _, client := range s.OnlineMap {
 			client.Channel <- msg
 		}
-		s.MapLock.Unlock()
+		mapLock.Unlock()
 	}
 }
 
@@ -94,4 +96,15 @@ func (s *Server) handleClientMessage(conn net.Conn, u *User) {
 		//s.BroadCastMessage(u, uMsg)
 		u.HandleMessage(uMsg)
 	}
+}
+
+func (s *Server) PushUserToMap(u *User) {
+	mapLock.Lock()
+	s.OnlineMap[u.Name] = u
+	mapLock.Unlock()
+}
+func (s *Server) RemoveUserFromMap(u *User) {
+	mapLock.Lock()
+	delete(s.OnlineMap, u.Name)
+	mapLock.Unlock()
 }
