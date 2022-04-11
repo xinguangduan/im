@@ -46,3 +46,7 @@ func (u *User) Offline() {
 func (u *User) HandleMessage(msg string) {
 	u.Server.BroadCastMessage(u, msg)
 }
+
+func (u *User) SendMsg(msg string) {
+	u.Conn.Write([]byte(msg))
+}
